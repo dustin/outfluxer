@@ -1,0 +1,68 @@
+name:                outfluxer
+version:             0.1.0.0
+github:              "dustin/outfluxer"
+license:             BSD3
+author:              "Dustin Sallings"
+maintainer:          "dustin@spy.net"
+copyright:           "MIT"
+
+extra-source-files:
+- README.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/dustin/outfluxer#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- influxdb
+- net-mqtt
+- megaparsec
+- containers
+- unordered-containers
+- aeson
+- network-uri
+- async
+- stm
+- optparse-applicative
+- lens
+- vector
+- time
+- text
+- scientific
+- hslogger
+- bytestring
+
+library:
+  source-dirs: src
+
+executables:
+  outfluxer:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - outfluxer
+
+tests:
+  outfluxer-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - outfluxer
+    - QuickCheck
+    - tasty
+    - tasty-hunit
+    - tasty-quickcheck
