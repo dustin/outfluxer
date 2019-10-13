@@ -13,7 +13,9 @@ import qualified Data.ByteString.Lazy.Char8 as BC
 import           Data.HashMap.Strict        (HashMap)
 import qualified Data.HashMap.Strict        as HM
 import           Data.Maybe                 (fromJust, mapMaybe)
-import           Data.Scientific            (Scientific, floatingOrInteger)
+import           Data.Scientific            (FPFormat (..), Scientific,
+                                             floatingOrInteger,
+                                             formatScientific)
 import           Data.String                (IsString, fromString)
 import           Data.Text                  (Text, intercalate, unpack)
 import           Data.Time                  (UTCTime)
@@ -105,7 +107,7 @@ runSrc Options{..} mc (Source host db qs) = do
                 PropMessageExpiryInterval (fromIntegral $ optPollInterval * 3),
                 PropUserProperty "ts" (BC.pack . show $ rts)]
 
-              ss v = either show show (floatingOrInteger v)
+              ss v = formatScientific Fixed (Just $ either (const 2) (const 0) (floatingOrInteger v)) v
 
 run :: Options -> IO ()
 run opts@Options{..} = do
