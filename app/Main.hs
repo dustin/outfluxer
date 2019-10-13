@@ -87,10 +87,7 @@ conv :: IsString a => Text -> a
 conv = fromString . unpack
 
 query :: IDB.QueryParams -> Text -> IO [NumRow]
-query qp qt = do
-  let q = conv qt
-  rs <- IDB.query qp q :: IO (V.Vector NumRow)
-  pure $ V.toList rs
+query qp qt = V.toList <$> IDB.query qp (conv qt)
 
 runSrc :: Options -> MQTTClient -> Source -> IO ()
 runSrc Options{..} mc (Source host db qs) = do
@@ -100,8 +97,7 @@ runSrc Options{..} mc (Source host db qs) = do
 
   where
     go qp (Query qt ts) = do
-      rs <- query qp qt
-      mapM_ (\r -> mapM_ (msink r) ts) rs
+      query qp qt >>= mapM_ (\r -> mapM_ (msink r) ts)
 
         where
           msink :: NumRow -> Target -> IO ()
