@@ -27,18 +27,17 @@ import           Network.URI                (URI, parseURI)
 import           Options.Applicative        (Parser, auto, execParser, fullDesc,
                                              help, helper, info, long,
                                              maybeReader, option, progDesc,
-                                             short, showDefault, strOption,
-                                             switch, value, (<**>))
-import           System.Log.Logger          (Priority (DEBUG, INFO), debugM,
-                                             errorM, infoM, rootLoggerName,
-                                             setLevel, updateGlobalLogger)
+                                             showDefault, strOption, value,
+                                             (<**>))
+import           System.Log.Logger          (Priority (INFO), errorM, infoM,
+                                             rootLoggerName, setLevel,
+                                             updateGlobalLogger)
 
 import           OutfluxerConf
 
 data Options = Options {
   optMQTTURI        :: URI
   , optConfFile     :: String
-  , optVerbose      :: Bool
   , optPollInterval :: Int
   }
 
@@ -46,7 +45,6 @@ options :: Parser Options
 options = Options
   <$> option (maybeReader parseURI) (long "mqtt-uri" <> showDefault <> value (fromJust $ parseURI "mqtt://localhost/") <> help "mqtt broker URI")
   <*> strOption (long "conf" <> showDefault <> value "outfluxer.conf" <> help "config file")
-  <*> switch (long "verbose" <> short 'v' <> help "Log more stuff")
   <*> option auto (long "period" <> showDefault <> value 300 <> help "seconds between polls")
 
 -- Time, Tags, Vals
@@ -68,9 +66,6 @@ logErr = errorM rootLoggerName
 
 logInfo :: String -> IO ()
 logInfo = infoM rootLoggerName
-
-logDebug :: String -> IO ()
-logDebug = debugM rootLoggerName
 
 seconds :: Int -> Int
 seconds = (* 1000000)
@@ -110,15 +105,14 @@ runSrc Options{..} mc (Source host db qs) = do
               else sink (fromJust mrd) (fromJust mrf)
 
               where
-                sink t v = do
-                  logDebug $ mconcat ["Sinking ", show fn, " to ", show t, " from ", show r]
-                  publishq mc t (BC.pack $ ss v) True QoS2 [PropMessageExpiryInterval (fromIntegral $ optPollInterval * 3)]
+                sink t v = publishq mc t (BC.pack $ ss v) True QoS2 [
+                  PropMessageExpiryInterval (fromIntegral $ optPollInterval * 3)]
 
                 ss v = either show show (floatingOrInteger v)
 
 run :: Options -> IO ()
 run opts@Options{..} = do
-  updateGlobalLogger rootLoggerName (setLevel $ if optVerbose then DEBUG else INFO)
+  updateGlobalLogger rootLoggerName (setLevel INFO)
 
   (OutfluxerConf srcs) <- parseConfFile optConfFile
 
