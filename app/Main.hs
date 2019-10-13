@@ -96,14 +96,15 @@ runSrc Options{..} mc (Source host db qs) = do
 
         where
           msink :: NumRow -> Target -> IO ()
-          msink r@(NumRow _ tags fields) (Target fn d) =
+          msink r@(NumRow rts tags fields) (Target fn d) =
             sink $ (,) <$> resolveDest tags d <*> HM.lookup fn fields
 
             where
               sink Nothing = logErr $ mconcat ["Could not resolve destination ", show d,
                                                " from query ", show qt, ": ", show r]
               sink (Just (t, v)) = publishq mc t (BC.pack $ ss v) True QoS2 [
-                PropMessageExpiryInterval (fromIntegral $ optPollInterval * 3)]
+                PropMessageExpiryInterval (fromIntegral $ optPollInterval * 3),
+                PropUserProperty "ts" (BC.pack . show $ rts)]
 
               ss v = either show show (floatingOrInteger v)
 
