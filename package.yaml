@@ -23,12 +23,10 @@ dependencies:
 - influxdb
 - net-mqtt
 - megaparsec
-- containers
 - unordered-containers
 - aeson
 - network-uri
 - async
-- stm
 - optparse-applicative
 - lens
 - vector
@@ -40,6 +38,9 @@ dependencies:
 
 library:
   source-dirs: src
+  ghc-options:
+  - -Wall
+  - -Werror
 
 executables:
   outfluxer:
@@ -49,6 +50,8 @@ executables:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -Wall
+    - -Werror
     dependencies:
     - outfluxer
 

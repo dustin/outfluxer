@@ -1,14 +1,11 @@
+{-# OPTIONS_GHC -Wno-type-defaults #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
-
 
 module Main where
 
 import           Control.Concurrent         (threadDelay)
-import           Control.Concurrent.Async   (async, cancel, link,
-                                             mapConcurrently_, waitCatch,
-                                             waitCatchSTM)
-import           Control.Exception          (SomeException, bracket, catch)
+import           Control.Concurrent.Async   (mapConcurrently_)
 import           Control.Lens
 import           Control.Monad              (forever)
 import           Data.Aeson                 (Value (..))
@@ -24,9 +21,8 @@ import qualified Data.Vector                as V
 import qualified Database.InfluxDB          as IDB
 import           Network.MQTT.Client        (MQTTClient, MQTTConfig (..),
                                              Property (..), ProtocolLevel (..),
-                                             QoS (..), Topic, connectURI,
-                                             mqttConfig, normalDisconnect,
-                                             publishq, svrProps, waitForClient)
+                                             QoS (..), connectURI, mqttConfig,
+                                             publishq, svrProps)
 import           Network.URI                (URI, parseURI)
 import           Options.Applicative        (Parser, auto, execParser, fullDesc,
                                              help, helper, info, long,
@@ -83,9 +79,8 @@ delaySeconds :: Int -> IO ()
 delaySeconds = threadDelay . seconds
 
 resolveDest :: HashMap Text Text -> Destination -> Maybe Text
-resolveDest m (Destination parts) = intercalate "/" <$> sequence rs
-  where rs = map res parts
-        res (ConstFragment x) = Just x
+resolveDest m (Destination segs) = intercalate "/" <$> sequence (res <$> segs)
+  where res (ConstFragment x) = Just x
         res (TagField x)      = HM.lookup x m
 
 conv :: IsString a => Text -> a
@@ -113,13 +108,13 @@ runSrc Options{..} mc (Source host db qs) = do
           msink r@(NumRow _ tags fields) (Target fn d) = do
             let mrd = resolveDest tags d
                 mrf = HM.lookup fn fields
-            if (isNothing mrd || isNothing mrf)
+            if isNothing mrd || isNothing mrf
               then logErr $ mconcat ["Could not resolve destination ", show d,
                                      " from query ", show qt, ": ", show r]
-              else sink mrd mrf
+              else sink (fromJust mrd) (fromJust mrf)
 
               where
-                sink (Just t) (Just v) = do
+                sink t v = do
                   logDebug $ mconcat ["Sinking ", show fn, " to ", show t, " from ", show r]
                   publishq mc t (BC.pack $ ss v) True QoS2 [PropMessageExpiryInterval (fromIntegral $ optPollInterval * 3)]
 
@@ -137,8 +132,7 @@ run opts@Options{..} = do
   mapConcurrently_ (runSrc opts mc) srcs
 
 main :: IO ()
-main = do
-  run =<< execParser opts
+main = run =<< execParser opts
 
   where opts = info (options <**> helper)
           ( fullDesc <> progDesc "InfluxDB -> mqtt gateway")

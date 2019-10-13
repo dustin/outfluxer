@@ -14,7 +14,7 @@ import           Control.Applicative        ((<|>))
 import           Data.Text                  (Text, pack)
 import           Data.Void                  (Void)
 import           Text.Megaparsec            (Parsec, between, manyTill, noneOf,
-                                             option, parse, sepBy, some, try)
+                                             parse, sepBy, some, try)
 import           Text.Megaparsec.Char       (char, space1)
 import qualified Text.Megaparsec.Char.Lexer as L
 import           Text.Megaparsec.Error      (errorBundlePretty)
@@ -53,7 +53,7 @@ astr = pack <$> some (noneOf ['\n', ' '])
 
 parseSrc :: Parser Source
 parseSrc = do
-  server <- sc <* (symbol "from") *> lexeme astr
+  server <- sc <* symbol "from" *> lexeme astr
   dbname <- lexeme astr
   ws <- between (symbol "{") (symbol "}") (some $ try parseQuery)
   pure $ Source server dbname ws
