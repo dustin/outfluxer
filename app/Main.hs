@@ -12,7 +12,7 @@ import           Data.Aeson                 (Value (..))
 import qualified Data.ByteString.Lazy.Char8 as BC
 import           Data.HashMap.Strict        (HashMap)
 import qualified Data.HashMap.Strict        as HM
-import           Data.Maybe                 (fromJust, isNothing, mapMaybe)
+import           Data.Maybe                 (fromJust, mapMaybe)
 import           Data.Scientific            (Scientific, floatingOrInteger)
 import           Data.String                (IsString, fromString)
 import           Data.Text                  (Text, intercalate, unpack)
@@ -96,19 +96,16 @@ runSrc Options{..} mc (Source host db qs) = do
 
         where
           msink :: NumRow -> Target -> IO ()
-          msink r@(NumRow _ tags fields) (Target fn d) = do
-            let mrd = resolveDest tags d
-                mrf = HM.lookup fn fields
-            if isNothing mrd || isNothing mrf
-              then logErr $ mconcat ["Could not resolve destination ", show d,
-                                     " from query ", show qt, ": ", show r]
-              else sink (fromJust mrd) (fromJust mrf)
+          msink r@(NumRow _ tags fields) (Target fn d) =
+            sink $ (,) <$> resolveDest tags d <*> HM.lookup fn fields
 
-              where
-                sink t v = publishq mc t (BC.pack $ ss v) True QoS2 [
-                  PropMessageExpiryInterval (fromIntegral $ optPollInterval * 3)]
+            where
+              sink Nothing = logErr $ mconcat ["Could not resolve destination ", show d,
+                                               " from query ", show qt, ": ", show r]
+              sink (Just (t, v)) = publishq mc t (BC.pack $ ss v) True QoS2 [
+                PropMessageExpiryInterval (fromIntegral $ optPollInterval * 3)]
 
-                ss v = either show show (floatingOrInteger v)
+              ss v = either show show (floatingOrInteger v)
 
 run :: Options -> IO ()
 run opts@Options{..} = do
