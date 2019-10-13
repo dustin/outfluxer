@@ -91,8 +91,7 @@ runSrc Options{..} mc (Source host db qs) = do
   forever $ mapM_ (go qp) qs >> delaySeconds optPollInterval
 
   where
-    go qp (Query qt ts) = do
-      query qp qt >>= mapM_ (\r -> mapM_ (msink r) ts)
+    go qp (Query qt ts) = query qp qt >>= mapM_ (\r -> mapM_ (msink r) ts)
 
         where
           msink :: NumRow -> Target -> IO ()
