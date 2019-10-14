@@ -76,7 +76,7 @@ delaySeconds :: Int -> IO ()
 delaySeconds = threadDelay . seconds
 
 resolveDest :: HashMap Text Text -> Destination -> Maybe Text
-resolveDest m (Destination segs) = intercalate "/" <$> sequence (res <$> segs)
+resolveDest m (Destination segs) = intercalate "/" <$> traverse res segs
   where res (ConstFragment x) = Just x
         res (TagField x)      = HM.lookup x m
 
