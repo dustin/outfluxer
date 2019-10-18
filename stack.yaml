@@ -38,7 +38,7 @@ packages:
 # using the same syntax as the packages field.
 # (e.g., acme-missiles-0.3)
 extra-deps:
-- net-mqtt-0.6.0.0@sha256:9abaad65b235e050ac253cd10e45a87ba69e97b3f7ce63590ddffea43007f450
+- net-mqtt-0.6.0.1
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
