@@ -35,6 +35,8 @@ dependencies:
 - scientific
 - hslogger
 - bytestring
+- mtl
+- transformers
 
 library:
   source-dirs: src
