@@ -125,7 +125,7 @@ run opts@Options{..} = do
 
   (OutfluxerConf srcs) <- parseConfFile optConfFile
 
-  mc <- connectURI mqttConfig{_protocol=Protocol50, _connProps=[]} optMQTTURI
+  mc <- connectURI mqttConfig{_protocol=Protocol50} optMQTTURI
   logInfo =<< (show <$> svrProps mc)
   let env = Env mc
 
