@@ -22,7 +22,6 @@ dependencies:
 - base >= 4.7 && < 5
 - influxdb
 - net-mqtt
-- megaparsec
 - unordered-containers
 - aeson
 - network-uri
@@ -37,6 +36,7 @@ dependencies:
 - bytestring
 - mtl
 - transformers
+- dhall
 
 library:
   source-dirs: src

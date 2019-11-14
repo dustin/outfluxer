@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module OutfluxerConf (
@@ -10,78 +11,39 @@ module OutfluxerConf (
   parseConfFile
   ) where
 
-import           Control.Applicative        ((<|>))
-import           Data.Text                  (Text, pack)
-import           Data.Void                  (Void)
-import           Text.Megaparsec            (Parsec, between, manyTill, noneOf,
-                                             parse, sepBy, some, try)
-import           Text.Megaparsec.Char       (char, space1)
-import qualified Text.Megaparsec.Char.Lexer as L
-import           Text.Megaparsec.Error      (errorBundlePretty)
+import           Data.Text (Text)
+import qualified Data.Text as T
 
-type Parser = Parsec Void Text
+import           Dhall
 
-newtype OutfluxerConf =  OutfluxerConf [Source] deriving(Show)
+newtype OutfluxerConf = OutfluxerConf { sources :: [Source]} deriving(Generic, Show)
 
-data Source = Source Text Text [Query] deriving(Show)
+instance FromDhall OutfluxerConf
 
-data Query = Query Text [Target] deriving(Show)
+data Source = Source { host :: Text, db :: Text, queries :: [Query] } deriving(Generic, Show)
 
-data Target = Target Text Destination deriving(Show)
+instance FromDhall Source
+
+data Query = Query { queryText :: Text, targets :: [Target] } deriving(Generic, Show)
+
+instance FromDhall Query
+
+data Target = Target { field :: Text, destination :: Destination } deriving(Generic, Show)
+
+instance FromDhall Target
 
 newtype Destination = Destination [DestFragment] deriving(Show)
 
-data DestFragment = ConstFragment Text | TagField Text deriving(Show)
+instance FromDhall Destination where
+  autoWith _ = Destination . bits <$> strictText
+    where bits t = f <$> T.splitOn "/" t
+          f s
+            | "$" `T.isPrefixOf` s = TagField (T.tail s)
+            | otherwise            = ConstFragment s
 
-sc :: Parser ()
-sc = L.space space1 lineComment blockComment
-  where
-    lineComment  = L.skipLineComment "//"
-    blockComment = L.skipBlockComment "/*" "*/"
+data DestFragment = ConstFragment Text | TagField Text deriving(Generic, Show)
 
-lexeme :: Parser a -> Parser a
-lexeme = L.lexeme sc
-
-symbol :: Text -> Parser Text
-symbol = L.symbol sc
-
-qstr :: Parser Text
-qstr = pack <$> (char '"' >> manyTill L.charLiteral (char '"'))
-
-astr :: Parser Text
-astr = pack <$> some (noneOf ['\n', ' '])
-
-parseSrc :: Parser Source
-parseSrc = do
-  server <- sc <* symbol "from" *> lexeme astr
-  dbname <- lexeme astr
-  ws <- between (symbol "{") (symbol "}") (some $ try parseQuery)
-  pure $ Source server dbname ws
-
-parseQuery :: Parser Query
-parseQuery = do
-  qs <- symbol "query" *> lexeme qstr
-  ts <- between (symbol "{") (symbol "}") (some $ try parseTarget)
-  pure $ Query qs ts
-
-parseTarget :: Parser Target
-parseTarget = do
-  f <- lexeme astr <* lexeme "->"
-  d <- lexeme (parseDestFragment `sepBy` "/")
-  pure $ Target f (Destination d)
-
-parseDestFragment :: Parser DestFragment
-parseDestFragment = tf <|> cf
-  where
-    tf = TagField <$> ("$" *> s)
-    cf = ConstFragment <$> s
-    s = pack <$> some (noneOf ['\n', ' ', '/'])
-
-parseOutfluxerConf :: Parser OutfluxerConf
-parseOutfluxerConf = OutfluxerConf <$> some parseSrc
-
-parseFile :: Parser a -> String -> IO a
-parseFile f s = pack <$> readFile s >>= either (fail.errorBundlePretty) pure . parse f s
+instance FromDhall DestFragment
 
 parseConfFile :: String -> IO OutfluxerConf
-parseConfFile = parseFile parseOutfluxerConf
+parseConfFile = inputFile auto
