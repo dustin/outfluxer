@@ -9,7 +9,7 @@ import           Control.Concurrent.Async   (mapConcurrently_)
 import           Control.Lens
 import           Control.Monad              (forever)
 import           Control.Monad.IO.Class     (MonadIO (..))
-import           Control.Monad.Reader       (ReaderT (..), ask, runReaderT)
+import           Control.Monad.Reader       (ReaderT (..), asks, runReaderT)
 import           Data.Aeson                 (Value (..))
 import qualified Data.ByteString.Lazy.Char8 as BC
 import           Data.HashMap.Strict        (HashMap)
@@ -47,7 +47,8 @@ data Options = Options {
   }
 
 data Env = Env {
-  mqc :: MQTTClient
+  mqc    :: MQTTClient
+  , opts :: Options
   }
 type Outfluxer = ReaderT Env IO
 
@@ -94,11 +95,12 @@ conv = fromString . unpack
 query :: IDB.QueryParams -> Text -> IO [NumRow]
 query qp qt = V.toList <$> IDB.query qp (conv qt)
 
-runSrc :: Options -> Source -> Outfluxer ()
-runSrc Options{..} (Source host db qs) = do
+runSrc :: Source -> Outfluxer ()
+runSrc (Source host db qs) = do
   let qp = IDB.queryParams (conv db) & IDB.server . IDB.host .~ conv host
+  polli <- asks (optPollInterval . opts)
 
-  forever $ mapM_ (go qp) qs >> sleep optPollInterval
+  forever $ mapM_ (go qp) qs >> sleep polli
 
   where
     go qp (Query qt ts) = liftIO (query qp qt) >>= mapM_ (\r -> mapM_ (msink r) ts)
@@ -112,9 +114,10 @@ runSrc Options{..} (Source host db qs) = do
               sink Nothing = logErr $ mconcat ["Could not resolve destination ", show d,
                                                " from query ", show qt, ": ", show r]
               sink (Just (t, v)) = do
-                mc <- mqc <$> ask
+                mc <- asks mqc
+                polli <- asks (optPollInterval . opts)
                 liftIO $ publishq mc t (BC.pack $ ss v) True QoS2 [
-                  PropMessageExpiryInterval (fromIntegral $ optPollInterval * 3),
+                  PropMessageExpiryInterval (fromIntegral $ polli * 3),
                   PropUserProperty "ts" (BC.pack . show $ rts)]
 
               ss v = formatScientific Fixed (Just $ either (const 2) (const 0) (floatingOrInteger v)) v
@@ -127,9 +130,9 @@ run opts@Options{..} = do
 
   mc <- connectURI mqttConfig{_protocol=Protocol50} optMQTTURI
   logInfo =<< (show <$> svrProps mc)
-  let env = Env mc
+  let env = Env mc opts
 
-  mapConcurrently_ (\s -> runReaderT (runSrc opts s) env) srcs
+  mapConcurrently_ (\s -> runReaderT (runSrc s) env) srcs
 
 main :: IO ()
 main = run =<< execParser opts
