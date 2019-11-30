@@ -5,22 +5,24 @@
 module Main where
 
 import           Control.Concurrent         (threadDelay)
-import           Control.Concurrent.Async   (mapConcurrently_)
 import           Control.Lens
 import           Control.Monad              (forever)
 import           Control.Monad.IO.Class     (MonadIO (..))
+import           Control.Monad.Logger       (LoggingT, MonadLogger, logErrorN,
+                                             logInfoN, runStderrLoggingT)
 import           Control.Monad.Reader       (ReaderT (..), asks, runReaderT)
 import           Data.Aeson                 (Value (..))
 import qualified Data.ByteString.Lazy.Char8 as BC
 import           Data.HashMap.Strict        (HashMap)
 import qualified Data.HashMap.Strict        as HM
+import           UnliftIO.Async             (mapConcurrently_)
 
 import           Data.Maybe                 (fromJust, mapMaybe)
 import           Data.Scientific            (FPFormat (..), Scientific,
                                              floatingOrInteger,
                                              formatScientific)
 import           Data.String                (IsString, fromString)
-import           Data.Text                  (Text, intercalate, unpack)
+import           Data.Text                  (Text, intercalate, pack, unpack)
 import           Data.Time                  (UTCTime)
 import qualified Data.Vector                as V
 import qualified Database.InfluxDB          as IDB
@@ -34,9 +36,6 @@ import           Options.Applicative        (Parser, auto, execParser, fullDesc,
                                              maybeReader, option, progDesc,
                                              showDefault, strOption, value,
                                              (<**>))
-import           System.Log.Logger          (Priority (INFO), errorM, infoM,
-                                             rootLoggerName, setLevel,
-                                             updateGlobalLogger)
 
 import           OutfluxerConf
 
@@ -50,7 +49,7 @@ data Env = Env {
   mqc    :: MQTTClient
   , opts :: Options
   }
-type Outfluxer = ReaderT Env IO
+type Outfluxer = ReaderT Env (LoggingT IO)
 
 options :: Parser Options
 options = Options
@@ -72,11 +71,14 @@ instance IDB.QueryResults NumRow where
       where ms (k,Number x) = Just (k,x)
             ms _            = Nothing
 
-logErr :: MonadIO m => String -> m ()
-logErr = liftIO . errorM rootLoggerName
+logErr :: MonadLogger m => Text -> m ()
+logErr = logErrorN
 
-logInfo :: MonadIO m => String -> m ()
-logInfo = liftIO . infoM rootLoggerName
+logInfo :: MonadLogger m => Text -> m ()
+logInfo = logInfoN
+
+tshow :: Show a => a -> Text
+tshow = pack . show
 
 sleep :: MonadIO m => Int -> m ()
 sleep = liftIO . threadDelay  . seconds
@@ -111,8 +113,8 @@ runSrc (Source host db qs) = do
 
             where
               sink :: Maybe (Topic, Scientific) -> Outfluxer ()
-              sink Nothing = logErr $ mconcat ["Could not resolve destination ", show d,
-                                               " from query ", show qt, ": ", show r]
+              sink Nothing = logErr $ mconcat ["Could not resolve destination ", tshow d,
+                                               " from query ", tshow qt, ": ", tshow r]
               sink (Just (t, v)) = do
                 mc <- asks mqc
                 polli <- asks (optPollInterval . opts)
@@ -124,15 +126,15 @@ runSrc (Source host db qs) = do
 
 run :: Options -> IO ()
 run opts@Options{..} = do
-  updateGlobalLogger rootLoggerName (setLevel INFO)
-
   (OutfluxerConf srcs) <- parseConfFile optConfFile
 
   mc <- connectURI mqttConfig{_protocol=Protocol50} optMQTTURI
-  logInfo =<< (show <$> svrProps mc)
-  let env = Env mc opts
+  sprops <- svrProps mc
+  runStderrLoggingT $ do
+    logInfo $ tshow sprops
+    let env = Env mc opts
 
-  mapConcurrently_ (\s -> runReaderT (runSrc s) env) srcs
+    mapConcurrently_ (\s -> runReaderT (runSrc s) env) srcs
 
 main :: IO ()
 main = run =<< execParser opts

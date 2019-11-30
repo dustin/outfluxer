@@ -32,7 +32,6 @@ dependencies:
 - time
 - text
 - scientific
-- hslogger
 - bytestring
 - mtl
 - transformers
@@ -56,6 +55,9 @@ executables:
     - -Werror
     dependencies:
     - outfluxer
+    - monad-logger
+    - unliftio
+    - unliftio-core
 
 tests:
   outfluxer-test:
