@@ -17,7 +17,7 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
-resolver: lts-13.10
+resolver: lts-14.20
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -38,7 +38,7 @@ packages:
 # using the same syntax as the packages field.
 # (e.g., acme-missiles-0.3)
 extra-deps:
-- net-mqtt-0.6.1.1
+- net-mqtt-0.6.2.2
 - dhall-1.27.0
 - repline-0.2.1.0@sha256:0f8e92d78e771afb9d41243c2b6ab9609fe02f94e676fae3caed66fa4ce09b18,1187
 - th-lift-instances-0.1.14@sha256:351314ffad77a5ba49439accb50d3baf9de0186ab1d8d207e88ed698f1becc5e,2625
