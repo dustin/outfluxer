@@ -100,9 +100,7 @@ conv :: IsString a => Text -> a
 conv = fromString . unpack
 
 query :: IDB.QueryParams -> Text -> IO [NumRow]
-query qp qt = do
-  print qt
-  V.toList <$> IDB.query qp (conv qt)
+query qp qt = V.toList <$> IDB.query qp (conv qt)
 
 subs :: MonadIO m => Text -> m Text
 subs qt = do
