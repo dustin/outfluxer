@@ -22,8 +22,13 @@ import           Data.Scientific            (FPFormat (..), Scientific,
                                              floatingOrInteger,
                                              formatScientific)
 import           Data.String                (IsString, fromString)
-import           Data.Text                  (Text, intercalate, pack, unpack)
-import           Data.Time                  (UTCTime)
+import           Data.Text                  (Text, intercalate, pack, replace,
+                                             unpack)
+import           Data.Time                  (UTCTime, getCurrentTime)
+import           Data.Time.Format           (defaultTimeLocale, formatTime)
+import           Data.Time.LocalTime        (LocalTime (..), getCurrentTimeZone,
+                                             localTimeToUTC, midnight,
+                                             utcToLocalTime)
 import qualified Data.Vector                as V
 import qualified Database.InfluxDB          as IDB
 import           Network.MQTT.Client        (MQTTClient, MQTTConfig (..),
@@ -95,7 +100,23 @@ conv :: IsString a => Text -> a
 conv = fromString . unpack
 
 query :: IDB.QueryParams -> Text -> IO [NumRow]
-query qp qt = V.toList <$> IDB.query qp (conv qt)
+query qp qt = do
+  print qt
+  V.toList <$> IDB.query qp (conv qt)
+
+subs :: MonadIO m => Text -> m Text
+subs qt = do
+  t <- today
+  pure $ replace "@TODAY@" t qt
+
+    where
+      today :: MonadIO m => m Text
+      today = liftIO $ pack . formatTime defaultTimeLocale "'%FT%TZ'" <$> td
+        where
+          td = do
+            tz <- getCurrentTimeZone
+            ld <- localDay . utcToLocalTime tz <$> getCurrentTime
+            pure $ localTimeToUTC tz (LocalTime ld midnight)
 
 runSrc :: Source -> Outfluxer ()
 runSrc (Source host db qs) = do
@@ -105,7 +126,7 @@ runSrc (Source host db qs) = do
   forever $ mapM_ (go qp) qs >> sleep polli
 
   where
-    go qp (Query qt ts) = liftIO (query qp qt) >>= mapM_ (\r -> mapM_ (msink r) ts)
+    go qp (Query qt ts) = subs qt >>= \qt' -> liftIO (query qp qt') >>= mapM_ (\r -> mapM_ (msink r) ts)
 
         where
           msink r@(NumRow rts tags fields) (Target fn d) =
