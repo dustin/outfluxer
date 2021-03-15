@@ -66,12 +66,12 @@ options = Options
 data NumRow = NumRow UTCTime (HashMap Text Text) (HashMap Text Scientific) deriving(Show)
 
 instance IDB.QueryResults NumRow where
-  parseResults prec = IDB.parseResultsWithDecoder IDB.strictDecoder $ \_ m columns fields -> do
+  parseMeasurement prec _name tags columns fields = do
     ts <- IDB.getField "time" columns fields >>= IDB.parseUTCTime prec
     let fl = filter (/= "time") $ V.toList columns
     vals <- mapM (\c -> IDB.getField c columns fields) fl
     let nums = mapMaybe ms (zip fl vals)
-    pure $ NumRow ts m (HM.fromList nums)
+    pure $ NumRow ts tags (HM.fromList nums)
 
       where ms (k,Number x) = Just (k,x)
             ms _            = Nothing
