@@ -18,8 +18,7 @@ import qualified Data.HashMap.Strict        as HM
 import           UnliftIO.Async             (mapConcurrently_)
 
 import           Data.Maybe                 (fromJust, mapMaybe)
-import           Data.Scientific            (FPFormat (..), Scientific,
-                                             floatingOrInteger,
+import           Data.Scientific            (FPFormat (..), floatingOrInteger,
                                              formatScientific)
 import           Data.String                (IsString, fromString)
 import           Data.Text                  (Text, intercalate, pack, replace,
@@ -63,18 +62,24 @@ options = Options
   <*> option auto (long "period" <> showDefault <> value 300 <> help "seconds between polls")
 
 -- Time, Tags, Vals
-data NumRow = NumRow UTCTime (HashMap Text Text) (HashMap Text Scientific) deriving(Show)
+data ARow = ARow UTCTime (HashMap Text Text) (HashMap Text String) deriving(Show)
 
-instance IDB.QueryResults NumRow where
+instance IDB.QueryResults ARow where
   parseMeasurement prec _name tags columns fields = do
     ts <- IDB.getField "time" columns fields >>= IDB.parseUTCTime prec
     let fl = filter (/= "time") $ V.toList columns
     vals <- mapM (\c -> IDB.getField c columns fields) fl
     let nums = mapMaybe ms (zip fl vals)
-    pure $ NumRow ts tags (HM.fromList nums)
+    pure $ ARow ts tags (HM.fromList nums)
 
-      where ms (k,Number x) = Just (k,x)
-            ms _            = Nothing
+      where ms (k, Number x)   = Just (k, ss x)
+            ms (k, String s)   = Just (k, unpack s)
+            ms (k, Bool True)  = Just (k, "true")
+            ms (k, Bool False) = Just (k, "false")
+            ms _               = Nothing
+
+            ss v = formatScientific Fixed (Just $ either (const 2) (const 0) (floatingOrInteger v)) v
+
 
 logErr :: MonadLogger m => Text -> m ()
 logErr = logErrorN
@@ -99,7 +104,7 @@ resolveDest m (Destination segs) = intercalate "/" <$> traverse res segs
 conv :: IsString a => Text -> a
 conv = fromString . unpack
 
-query :: IDB.QueryParams -> Text -> IO [NumRow]
+query :: IDB.QueryParams -> Text -> IO [ARow]
 query qp qt = V.toList <$> IDB.query qp (conv qt)
 
 subs :: MonadIO m => Text -> m Text
@@ -127,21 +132,19 @@ runSrc (Source host db qs) = do
     go qp (Query qt ts) = subs qt >>= \qt' -> liftIO (query qp qt') >>= mapM_ (\r -> mapM_ (msink r) ts)
 
         where
-          msink r@(NumRow rts tags fields) (Target fn d) =
+          msink r@(ARow rts tags fields) (Target fn d) =
             sink $ (,) <$> resolveDest tags d <*> HM.lookup fn fields
 
             where
-              sink :: Maybe (Topic, Scientific) -> Outfluxer ()
+              sink :: Maybe (Topic, String) -> Outfluxer ()
               sink Nothing = logErr $ mconcat ["Could not resolve destination ", tshow d,
                                                " from query ", tshow qt, ": ", tshow r]
               sink (Just (t, v)) = do
                 mc <- asks mqc
                 polli <- asks (optPollInterval . opts)
-                liftIO $ publishq mc t (BC.pack $ ss v) True QoS2 [
+                liftIO $ publishq mc t (BC.pack v) True QoS2 [
                   PropMessageExpiryInterval (fromIntegral $ polli * 3),
                   PropUserProperty "ts" (BC.pack . show $ rts)]
-
-              ss v = formatScientific Fixed (Just $ either (const 2) (const 0) (floatingOrInteger v)) v
 
 run :: Options -> IO ()
 run opts@Options{..} = do
