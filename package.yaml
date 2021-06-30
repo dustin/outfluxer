@@ -35,7 +35,6 @@ dependencies:
 - bytestring
 - mtl
 - transformers
-- semigroupoids
 - dhall
 
 library:

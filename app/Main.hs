@@ -14,11 +14,11 @@ import           Data.Aeson                 (Value (..))
 import qualified Data.ByteString.Lazy.Char8 as BC
 import           Data.HashMap.Strict        (HashMap)
 import qualified Data.HashMap.Strict        as HM
+import           Data.Semigroup             (sconcat)
 import           UnliftIO.Async             (mapConcurrently_)
 
 import           Data.Maybe                 (fromJust, mapMaybe)
 import           Data.Scientific            (FPFormat (..), floatingOrInteger, formatScientific)
-import           Data.Semigroup.Foldable    (fold1)
 import           Data.String                (IsString, fromString)
 import           Data.Text                  (Text, pack, replace, unpack)
 import           Data.Time                  (UTCTime, getCurrentTime)
@@ -90,7 +90,7 @@ seconds :: Int -> Int
 seconds = (* 1000000)
 
 resolveDest :: HashMap Text Text -> Destination -> Maybe Topic
-resolveDest m (Destination segs) = fold1 <$> traverse res segs
+resolveDest m (Destination segs) = sconcat <$> traverse res segs
   where res (ConstFragment x) = mkTopic x
         res (TagField x)      = mkTopic =<< HM.lookup x m
 
