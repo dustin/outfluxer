@@ -8,8 +8,7 @@ import           Control.Concurrent         (threadDelay)
 import           Control.Lens
 import           Control.Monad              (forever)
 import           Control.Monad.IO.Class     (MonadIO (..))
-import           Control.Monad.Logger       (LoggingT, MonadLogger, logErrorN,
-                                             logInfoN, runStderrLoggingT)
+import           Control.Monad.Logger       (LoggingT, MonadLogger, logErrorN, logInfoN, runStderrLoggingT)
 import           Control.Monad.Reader       (ReaderT (..), asks, runReaderT)
 import           Data.Aeson                 (Value (..))
 import qualified Data.ByteString.Lazy.Char8 as BC
@@ -18,28 +17,22 @@ import qualified Data.HashMap.Strict        as HM
 import           UnliftIO.Async             (mapConcurrently_)
 
 import           Data.Maybe                 (fromJust, mapMaybe)
-import           Data.Scientific            (FPFormat (..), floatingOrInteger,
-                                             formatScientific)
+import           Data.Scientific            (FPFormat (..), floatingOrInteger, formatScientific)
+import           Data.Semigroup.Foldable    (fold1)
 import           Data.String                (IsString, fromString)
-import           Data.Text                  (Text, intercalate, pack, replace,
-                                             unpack)
+import           Data.Text                  (Text, pack, replace, unpack)
 import           Data.Time                  (UTCTime, getCurrentTime)
 import           Data.Time.Format           (defaultTimeLocale, formatTime)
-import           Data.Time.LocalTime        (LocalTime (..), getCurrentTimeZone,
-                                             localTimeToUTC, midnight,
+import           Data.Time.LocalTime        (LocalTime (..), getCurrentTimeZone, localTimeToUTC, midnight,
                                              utcToLocalTime)
 import qualified Data.Vector                as V
 import qualified Database.InfluxDB          as IDB
-import           Network.MQTT.Client        (MQTTClient, MQTTConfig (..),
-                                             Property (..), ProtocolLevel (..),
-                                             QoS (..), Topic, connectURI,
-                                             mqttConfig, publishq, svrProps)
+import           Network.MQTT.Client        (MQTTClient, MQTTConfig (..), Property (..), ProtocolLevel (..), QoS (..),
+                                             connectURI, mqttConfig, publishq, svrProps)
+import           Network.MQTT.Topic         (Topic, mkTopic)
 import           Network.URI                (URI, parseURI)
-import           Options.Applicative        (Parser, auto, execParser, fullDesc,
-                                             help, helper, info, long,
-                                             maybeReader, option, progDesc,
-                                             showDefault, strOption, value,
-                                             (<**>))
+import           Options.Applicative        (Parser, auto, execParser, fullDesc, help, helper, info, long, maybeReader,
+                                             option, progDesc, showDefault, strOption, value, (<**>))
 
 import           OutfluxerConf
 
@@ -96,10 +89,10 @@ sleep = liftIO . threadDelay  . seconds
 seconds :: Int -> Int
 seconds = (* 1000000)
 
-resolveDest :: HashMap Text Text -> Destination -> Maybe Text
-resolveDest m (Destination segs) = intercalate "/" <$> traverse res segs
-  where res (ConstFragment x) = Just x
-        res (TagField x)      = HM.lookup x m
+resolveDest :: HashMap Text Text -> Destination -> Maybe Topic
+resolveDest m (Destination segs) = fold1 <$> traverse res segs
+  where res (ConstFragment x) = mkTopic x
+        res (TagField x)      = mkTopic =<< HM.lookup x m
 
 conv :: IsString a => Text -> a
 conv = fromString . unpack

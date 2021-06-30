@@ -11,7 +11,9 @@ module OutfluxerConf (
   parseConfFile
   ) where
 
-import qualified Data.Text as T
+import           Data.List.NonEmpty (NonEmpty (..))
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Text          as T
 
 import           Dhall
 
@@ -31,11 +33,11 @@ data Target = Target { field :: Text, destination :: Destination } deriving(Gene
 
 instance FromDhall Target
 
-newtype Destination = Destination [DestFragment] deriving(Show)
+newtype Destination = Destination (NonEmpty DestFragment) deriving(Show)
 
 instance FromDhall Destination where
   autoWith _ = Destination . bits <$> strictText
-    where bits t = f <$> T.splitOn "/" t
+    where bits t = f <$> NE.fromList (T.splitOn "/" t)
           f s
             | "$" `T.isPrefixOf` s = TagField (T.tail s)
             | otherwise            = ConstFragment s
