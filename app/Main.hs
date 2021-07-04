@@ -17,7 +17,7 @@ import qualified Data.HashMap.Strict        as HM
 import           Data.Semigroup             (sconcat)
 import           UnliftIO.Async             (mapConcurrently_)
 
-import           Data.Maybe                 (fromJust, mapMaybe)
+import           Data.Maybe                 (fromJust)
 import           Data.Scientific            (FPFormat (..), floatingOrInteger, formatScientific)
 import           Data.String                (IsString, fromString)
 import           Data.Text                  (Text, pack, replace, unpack)
@@ -60,16 +60,16 @@ data ARow = ARow UTCTime (HashMap Text Text) (HashMap Text String) deriving(Show
 instance IDB.QueryResults ARow where
   parseMeasurement prec _name tags columns fields = do
     ts <- IDB.getField "time" columns fields >>= IDB.parseUTCTime prec
-    let fl = filter (/= "time") $ V.toList columns
-    vals <- mapM (\c -> IDB.getField c columns fields) fl
-    let nums = mapMaybe ms (zip fl vals)
-    pure $ ARow ts tags (HM.fromList nums)
+    let fl = V.filter (/= "time") columns
+    vals <- traverse (\c -> IDB.getField c columns fields) fl
+    let nums = foldMap ms (V.zip fl vals)
+    pure $ ARow ts tags nums
 
-      where ms (k, Number x)   = Just (k, ss x)
-            ms (k, String s)   = Just (k, unpack s)
-            ms (k, Bool True)  = Just (k, "true")
-            ms (k, Bool False) = Just (k, "false")
-            ms _               = Nothing
+      where ms (k, Number x)   = HM.singleton k (ss x)
+            ms (k, String s)   = HM.singleton k (unpack s)
+            ms (k, Bool True)  = HM.singleton k "true"
+            ms (k, Bool False) = HM.singleton k "false"
+            ms _               = mempty
 
             ss v = formatScientific Fixed (Just $ either (const 2) (const 0) (floatingOrInteger v)) v
 
@@ -101,9 +101,7 @@ query :: IDB.QueryParams -> Text -> IO [ARow]
 query qp qt = V.toList <$> IDB.query qp (conv qt)
 
 subs :: MonadIO m => Text -> m Text
-subs qt = do
-  t <- today
-  pure $ replace "@TODAY@" t qt
+subs qt = today >>= \t -> pure $ replace "@TODAY@" t qt
 
     where
       today :: MonadIO m => m Text
