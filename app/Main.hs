@@ -8,8 +8,7 @@ import           Control.Concurrent         (threadDelay)
 import           Control.Lens
 import           Control.Monad              (forever)
 import           Control.Monad.IO.Class     (MonadIO (..))
-import           Control.Monad.Logger       (LoggingT, MonadLogger, logErrorN, logInfoN, runStderrLoggingT)
-import           Control.Monad.Reader       (ReaderT (..), asks, runReaderT)
+import           Control.Monad.Logger       (MonadLogger, logErrorN, logInfoN, runStderrLoggingT)
 import           Data.Aeson                 (Value (..))
 import qualified Data.ByteString.Lazy.Char8 as BC
 import           Data.HashMap.Strict        (HashMap)
@@ -46,7 +45,6 @@ data Env = Env {
   mqc    :: MQTTClient
   , opts :: Options
   }
-type Outfluxer = ReaderT Env (LoggingT IO)
 
 options :: Parser Options
 options = Options
@@ -101,7 +99,7 @@ query :: IDB.QueryParams -> Text -> IO [ARow]
 query qp qt = V.toList <$> IDB.query qp (conv qt)
 
 subs :: MonadIO m => Text -> m Text
-subs qt = today >>= \t -> pure $ replace "@TODAY@" t qt
+subs qt = flip replace "@TODAY@" qt <$> today
 
     where
       today :: MonadIO m => m Text
@@ -112,10 +110,10 @@ subs qt = today >>= \t -> pure $ replace "@TODAY@" t qt
             ld <- localDay . utcToLocalTime tz <$> getCurrentTime
             pure $ localTimeToUTC tz (LocalTime ld midnight)
 
-runSrc :: Source -> Outfluxer ()
-runSrc (Source host db qs) = do
+runSrc :: (MonadIO m, MonadLogger m) => Env -> Source -> m ()
+runSrc Env{..} (Source host db qs) = do
   let qp = IDB.queryParams (conv db) & IDB.server . IDB.host .~ conv host
-  polli <- asks (optPollInterval . opts)
+      polli = optPollInterval opts
 
   forever $ mapM_ (go qp) qs >> sleep polli
 
@@ -127,13 +125,12 @@ runSrc (Source host db qs) = do
             sink $ (,) <$> resolveDest tags d <*> HM.lookup fn fields
 
             where
-              sink :: Maybe (Topic, String) -> Outfluxer ()
+              sink :: (MonadIO m, MonadLogger m) => Maybe (Topic, String) -> m ()
               sink Nothing = logErr $ mconcat ["Could not resolve destination ", tshow d,
                                                " from query ", tshow qt, ": ", tshow r]
               sink (Just (t, v)) = do
-                mc <- asks mqc
-                polli <- asks (optPollInterval . opts)
-                liftIO $ publishq mc t (BC.pack v) True QoS2 [
+                let polli = optPollInterval opts
+                liftIO $ publishq mqc t (BC.pack v) True QoS2 [
                   PropMessageExpiryInterval (fromIntegral $ polli * 3),
                   PropUserProperty "ts" (BC.pack . show $ rts)]
 
@@ -145,9 +142,7 @@ run opts@Options{..} = do
   sprops <- svrProps mc
   runStderrLoggingT $ do
     logInfo $ tshow sprops
-    let env = Env mc opts
-
-    mapConcurrently_ (\s -> runReaderT (runSrc s) env) srcs
+    mapConcurrently_ (runSrc (Env mc opts)) srcs
 
 main :: IO ()
 main = run =<< execParser opts
