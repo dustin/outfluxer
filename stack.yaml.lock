@@ -3,17 +3,10 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages:
-- completed:
-    hackage: net-mqtt-0.8.0.0@sha256:8e7399d782ecd2edc9e58534f58e881a621ebd64fa10f28c3791b5f170df2385,4146
-    pantry-tree:
-      size: 701
-      sha256: 102df8b02019b5b776788d5f518c4fefcd504daf163832ef530dc0c69505c622
-  original:
-    hackage: net-mqtt-0.8.0.0@sha256:8e7399d782ecd2edc9e58534f58e881a621ebd64fa10f28c3791b5f170df2385,4146
+packages: []
 snapshots:
 - completed:
-    size: 585393
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/18/0.yaml
-    sha256: c632012da648385b9fa3c29f4e0afd56ead299f1c5528ee789058be410e883c0
-  original: lts-18.0
+    sha256: 4a0e5e187fbef423f9c60072bfb1dd56f2a01a07a2667eb1469bd79073cfceaf
+    size: 713340
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/22/20.yaml
+  original: lts-22.20

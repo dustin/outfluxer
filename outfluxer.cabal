@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.4.
+-- This file has been generated from package.yaml by hpack version 0.37.0.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 604fbf31c720b1511815e806a4ab11717ebaa548e04ac98789425559a3dcc85d
+-- hash: 1a32427d5213554c2856ca9a8452b3018c0c522043c426406dff795d3a0204a7
 
 name:           outfluxer
 version:        0.1.0.0
@@ -41,7 +41,7 @@ library
     , influxdb
     , lens
     , mtl
-    , net-mqtt
+    , net-mqtt >=0.8
     , network-uri
     , optparse-applicative
     , scientific
@@ -69,7 +69,7 @@ executable outfluxer
     , lens
     , monad-logger
     , mtl
-    , net-mqtt
+    , net-mqtt >=0.8
     , network-uri
     , optparse-applicative
     , outfluxer
@@ -101,7 +101,7 @@ test-suite outfluxer-test
     , influxdb
     , lens
     , mtl
-    , net-mqtt
+    , net-mqtt >=0.8
     , network-uri
     , optparse-applicative
     , outfluxer
