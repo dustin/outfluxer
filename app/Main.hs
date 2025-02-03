@@ -115,6 +115,8 @@ runSrc Env{..} (Source host db qs) = do
   let qp = IDB.queryParams (conv db) & IDB.server . IDB.host .~ conv host
       polli = optPollInterval opts
 
+  logInfo $ "Running source " <> tshow host <> " " <> tshow db <> " " <> tshow qs
+
   forever $ mapM_ (go qp) qs >> sleep polli
 
   where
