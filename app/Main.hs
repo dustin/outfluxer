@@ -8,7 +8,7 @@ import           Control.Concurrent         (threadDelay)
 import           Control.Lens
 import           Control.Monad              (forever)
 import           Control.Monad.IO.Class     (MonadIO (..))
-import           Control.Monad.Logger       (MonadLogger, logErrorN, logInfoN, runStderrLoggingT)
+import           Control.Monad.Logger       (MonadLogger, logErrorN, logInfoN, logDebugN, runStderrLoggingT)
 import           Data.Aeson                 (Value (..))
 import qualified Data.ByteString.Lazy.Char8 as BC
 import           Data.HashMap.Strict        (HashMap)
@@ -120,7 +120,10 @@ runSrc Env{..} (Source host db qs) = do
   forever $ mapM_ (go qp) qs >> sleep polli
 
   where
-    go qp (Query qt ts) = subs qt >>= \qt' -> liftIO (query qp qt') >>= mapM_ (\r -> mapM_ (msink r) ts)
+    go qp (Query qt ts) = do
+      qt' <- subs qt
+      logDebugN $ "Subbed query text " <> tshow qt <> " to " <> tshow qt'
+      liftIO (query qp qt') >>= mapM_ (\r -> mapM_ (msink r) ts)
 
         where
           msink r@(ARow rts tags fields) (Target fn d) =
