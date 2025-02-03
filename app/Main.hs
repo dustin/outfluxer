@@ -99,7 +99,7 @@ query :: IDB.QueryParams -> Text -> IO [ARow]
 query qp qt = V.toList <$> IDB.query qp (conv qt)
 
 subs :: MonadIO m => Text -> m Text
-subs qt = flip replace "@TODAY@" qt <$> today
+subs qt = (\t -> replace "@TODAY@" t qt) <$> today
 
     where
       today :: MonadIO m => m Text
