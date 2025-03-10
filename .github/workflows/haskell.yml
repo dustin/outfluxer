@@ -51,7 +51,7 @@ jobs:
       id: setup
       with:
         ghc-version: '9.6.4'
-        cabal-version: 'latest'
+        cabal-version: '3.10.2.1'
 
     - name: Generate Cache Keys
       id: cache_key
@@ -68,10 +68,6 @@ jobs:
           ~/.cabal
           dist-newstyle
         key: ubuntu-latest-ghc-${{ env.ghc_ver }}-cabal-${{ env.dep_hash }}
-        restore-keys: |
-          ubuntu-latest-ghc-${{ env.ghc_ver }}-cabal-
-          ubuntu-latest-ghc-${{ env.ghc_ver }}-
-          ubuntu-latest-
 
     - name: Install tasty-discover
       if: steps.cache.outputs.cache-hit != 'true'
