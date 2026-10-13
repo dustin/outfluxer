@@ -9,6 +9,7 @@
       (system:
         let pkgs = nixpkgs.legacyPackages.${system}; in
         {
+          packages.default = pkgs.haskellPackages.callCabal2nix "outfluxer" self { };
           devShells.default = import ./shell.nix { inherit pkgs; };
         }
       );
